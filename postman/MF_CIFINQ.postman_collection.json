@@ -1,0 +1,151 @@
+{
+  "info": {
+    "name": "NGI FC_MF_CIFINQ - passport check",
+    "description": "Two steps. Run '1. Get txnKey' first, it stores channelId/svcCode/svcRqId/txnDate/userId/channelDirect and the returned txnKey as collection variables. Then run '2. MF CIF Inquiry', which reuses exactly those values, because txnKey is a SHA256 over them and it has to match.\n\nSet baseUrl, and check the header names against a request that already works in your Postman, the interceptor that reads them lives in the shared IL library.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8090/openapi/dev", "type": "string" },
+    { "key": "version", "value": "v1", "type": "string" },
+    { "key": "channelId", "value": "CH", "type": "string" },
+    { "key": "svcCode", "value": "MF_CIFINQ", "type": "string" },
+    { "key": "userId", "value": "APIINTOPR", "type": "string" },
+    { "key": "channelDirect", "value": "Y", "type": "string" },
+    { "key": "typeId", "value": "90", "type": "string" },
+    { "key": "acctId", "value": "14508534", "type": "string" },
+    { "key": "svcRqId", "value": "", "type": "string" },
+    { "key": "txnDate", "value": "", "type": "string" },
+    { "key": "txnKey", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Get txnKey",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// txnDate must be yyyyMMddHHmmss and must stay identical for both calls,",
+              "// the txnKey is a hash over it.",
+              "const p = n => String(n).padStart(2, '0');",
+              "const d = new Date();",
+              "const txnDate = d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) +",
+              "                p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());",
+              "pm.collectionVariables.set('txnDate', txnDate);",
+              "",
+              "// the DB function rejects a repeated service request id, so make it unique",
+              "pm.collectionVariables.set('svcRqId', 'RQ' + Date.now());",
+              "",
+              "console.log('txnDate', txnDate, 'svcRqId', pm.collectionVariables.get('svcRqId'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "const key = body.response && body.response[0];",
+              "pm.test('txnKey returned', () => pm.expect(key).to.be.a('string').and.not.empty);",
+              "if (key) { pm.collectionVariables.set('txnKey', key); console.log('txnKey', key); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "channelId", "value": "{{channelId}}" },
+          { "key": "svcCode", "value": "{{svcCode}}" },
+          { "key": "svcRqId", "value": "{{svcRqId}}" },
+          { "key": "userId", "value": "{{userId}}" },
+          { "key": "txnDate", "value": "{{txnDate}}" },
+          { "key": "channelDirect", "value": "{{channelDirect}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"typeId\": \"{{typeId}}\",\n  \"acctId\": \"{{acctId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/fcr/ngi/{{version}}/mf/cif/inq/txn-key",
+          "host": ["{{baseUrl}}"],
+          "path": ["fcr", "ngi", "{{version}}", "mf", "cif", "inq", "txn-key"]
+        }
+      }
+    },
+    {
+      "name": "2. MF CIF Inquiry",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "const vo = body.response && body.response[0];",
+              "const cif = vo && vo.cifInfo && vo.cifInfo[0];",
+              "",
+              "pm.test('a CIF record came back', () => pm.expect(cif).to.be.an('object'));",
+              "if (!cif) { return; }",
+              "",
+              "console.log('customerNo        ', cif.customerNo);",
+              "console.log('icType            ', cif.icType);",
+              "console.log('passportNo        ', cif.passportNo);",
+              "console.log('passportExpiryDate', cif.passportExpiryDate);",
+              "",
+              "// the ITRD rule: the passport fields belong to a passport holder only",
+              "const isPas = (cif.icType || '').trim().toUpperCase() === 'PAS';",
+              "",
+              "pm.test('icType is no longer the replication flag Y/N', function () {",
+              "    pm.expect(['Y', 'N']).to.not.include((cif.icType || '').trim());",
+              "});",
+              "",
+              "if (isPas) {",
+              "    pm.test('passportNo is populated for a PAS customer', function () {",
+              "        pm.expect(cif.passportNo).to.be.a('string').and.not.empty;",
+              "    });",
+              "    pm.test('passportExpiryDate is YYYYMMDD, or null when not a date', function () {",
+              "        if (cif.passportExpiryDate !== null && cif.passportExpiryDate !== undefined) {",
+              "            pm.expect(cif.passportExpiryDate).to.match(/^[0-9]{8}$/);",
+              "        }",
+              "    });",
+              "} else {",
+              "    pm.test('passport fields are null for a non PAS icType', function () {",
+              "        pm.expect(cif.passportNo == null || cif.passportNo === '').to.be.true;",
+              "        pm.expect(cif.passportExpiryDate == null || cif.passportExpiryDate === '').to.be.true;",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "channelId", "value": "{{channelId}}" },
+          { "key": "svcCode", "value": "{{svcCode}}" },
+          { "key": "svcRqId", "value": "{{svcRqId}}" },
+          { "key": "userId", "value": "{{userId}}" },
+          { "key": "txnDate", "value": "{{txnDate}}" },
+          { "key": "channelDirect", "value": "{{channelDirect}}" },
+          { "key": "txnKey", "value": "{{txnKey}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"typeId\": \"{{typeId}}\",\n  \"acctId\": \"{{acctId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/fcr/ngi/{{version}}/mf/cif/inq",
+          "host": ["{{baseUrl}}"],
+          "path": ["fcr", "ngi", "{{version}}", "mf", "cif", "inq"]
+        }
+      }
+    }
+  ]
+}
