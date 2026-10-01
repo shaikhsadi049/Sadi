@@ -52,21 +52,47 @@ Sample response values from the ITRD: `icType = PAS`,
   string.
 * `passportExpiryDate` is held as free text in `UDF_CUST_LOG_DETAILS`, so the
   value is normalised to the `YYYYMMDD` format the consumer expects.
-  `yyyyMMdd`, `dd/MM/yyyy`, `dd-MM-yyyy`, `dd.MM.yyyy`, `dd-MMM-yyyy`,
-  `yyyy-MM-dd` and `yyyy/MM/dd` are recognised. A value in any other format is
-  logged as a warning and returned exactly as it is stored, so that an
+  `yyyyMMdd`, `ddMMyyyy`, `dd/MM/yyyy`, `dd-MM-yyyy`, `dd.MM.yyyy`,
+  `dd-MMM-yyyy`, `yyyy-MM-dd` and `yyyy/MM/dd` are recognised. `yyyyMMdd` is
+  tried before `ddMMyyyy`; the two do not collide for an expiry date, because a
+  `ddMMyyyy` value in the 20xx range puts `20` where `yyyyMMdd` expects a month
+  and therefore fails to parse as `yyyyMMdd` first. A value in any other format
+  is logged as a warning and returned exactly as it is stored, so that an
   unexpected capture format is visible in the logs instead of being silently
   dropped from the response.
 
+## What the FCR schema actually holds
+
+Checked against the schema with `mf_cifinq_passport_verify.sql`:
+
+* `TXT_696` and `TXT_762` are held under `COD_TASK = 'CIM09'` only, once per
+  customer per maintenance status, so the read pins the task.
+* `TXT_696` is captured for 101 customers, `TXT_762` for 55. A customer without
+  the field gets `NULL`, which is what the ITRD source definition implies.
+* `TXT_762` is free text. 42 of its 55 rows hold `SEUMUR HDP` or `SEUMUR-HDP`
+  ("seumur hidup", lifetime validity), 8 hold `dd/MM/yyyy`, 3 hold `ddMMyyyy`,
+  and 2 hold `220326` and `0`. The lifetime rows belong to customers whose
+  `icType` is not `PAS`, so they are never read: the service only reads
+  `TXT_762` for a passport holder.
+* One customer in the schema has `icType = 'PAS'`: `14508534`, whose `TXT_762`
+  is `12/12/2028`, which the service returns as `20281212`.
+
 ## Notes for review
 
-* **`COD_TASK` is not part of the ITRD condition.** A customer can hold the same
-  field tag under more than one maintenance task, and the ITRD gives only
-  `COD_FIELD_TAG`. The read therefore matches the ITRD (field tag, customer,
-  active status) but orders the rows so that the customer maintenance task
-  `CIM09` wins when several tasks hold the tag, which keeps the result
-  deterministic. Please confirm with BDI which task captures `TXT_696` and
-  `TXT_762`; if it is always one task, the read can be narrowed to it.
+* **`passportNo` for the one PAS customer does not look like a passport
+  number.** `CI_CUSTMAST.COD_CUST_NATL_ID` holds `5876567876545678` for
+  customer `14508534`, sixteen digits, which is the shape of an Indonesian NIK
+  rather than of a passport number, and the ITRD's own sample is `AB1234567Z`.
+  Read together with `TXT_696` and `TXT_762` being generic identity document
+  fields, the likeliest explanation is a data entry error on this one UAT
+  record rather than a wrong source, but it is the only `PAS` record available,
+  so the mapping has not been exercised against a realistic passport number.
+  Worth confirming against production data before SIT sign off.
+* **A `TXT_762` value that is not a date is returned as it is stored.** No
+  value is silently misparsed, and each one is logged at WARN. If a passport
+  holder ever carries `SEUMUR HDP`, `0` or a six digit value, the response
+  breaks the `YYYYMMDD` contract. Ask BDI what the service should return for a
+  lifetime validity marker: `NULL`, or a sentinel such as `99991231`.
 * **Query cost on the multiple CIF paths.** Sourcing costs one query per
   customer, plus two more for a passport holder. That is negligible for a single
   CIF inquiry, but `typeId` `91` and `99` can return many records. Worth a look

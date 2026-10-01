@@ -82,10 +82,19 @@ public class CustomerMFInqCIFServiceImpl implements CustomerMFInqCIFService {
     /**
      * The passport expiry date is kept as free text in the UDF table, so the value is normalised to
      * the YYYYMMDD format the consumer expects instead of being passed through as it was captured.
+     *
+     * <p>The formats are tried in this order. `yyyyMMdd` comes before `ddMMyyyy` on purpose: an
+     * eight digit value that is a valid date under both readings is taken as `yyyyMMdd`. The two do
+     * not in practice collide for an expiry date, since a `ddMMyyyy` value in the 20xx range puts
+     * `20` where `yyyyMMdd` expects a month and so fails to parse as `yyyyMMdd` first.
+     *
+     * <p>The formats observed in the FCR schema are `dd/MM/yyyy` and `ddMMyyyy`. The rest are
+     * carried for values captured differently in other environments.
      */
     private static final List<DateTimeFormatter> PASSPORT_EXPIRY_DATE_INPUT_FORMATS = Collections.unmodifiableList(
             Arrays.asList(
                     passportExpiryDateFormat("yyyyMMdd"),
+                    passportExpiryDateFormat("ddMMyyyy"),
                     passportExpiryDateFormat("dd/MM/yyyy"),
                     passportExpiryDateFormat("dd-MM-yyyy"),
                     passportExpiryDateFormat("dd.MM.yyyy"),
