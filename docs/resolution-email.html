@@ -32,7 +32,7 @@ Please find the resolution details and deployment prerequisites below:</p>
   </tr>
   <tr>
     <td><b>Deployment Prerequisite</b></td>
-    <td><b>Crucial:</b> the function must be deployed <b>before</b> the JAR, as the JAR reads the new icType cursor column. The UDF reads are scoped to COD_TASK = 'CIM09'; please confirm TXT_696 and TXT_762 are captured under the same task in the target environment.</td>
+    <td><b>Crucial:</b> the function must be deployed <b>before</b> the JAR, as the JAR reads the new icType cursor column. The UDF reads are scoped to COD_TASK = 'CIM09'; please confirm TXT_696 and TXT_762 are captured under the same task in each target environment.</td>
   </tr>
   <tr>
     <td><b>Artifact Location</b></td>
@@ -40,8 +40,12 @@ Please find the resolution details and deployment prerequisites below:</p>
         The pre-change function is kept as ap_ngi_ext_mf_cif_inq_OLD.sql for rollback, to be rolled back together with the backup JAR.</td>
   </tr>
   <tr>
+    <td><b>Deployment Status</b></td>
+    <td>Deployed to the UAT Linux environment.</td>
+  </tr>
+  <tr>
     <td><b>Next Step</b></td>
-    <td>Deployment to the UAT Linux environment, followed by end-to-end testing with DBank PRO.</td>
+    <td>End-to-end testing with DBank PRO, and SIT sign off.</td>
   </tr>
   <tr>
     <td><b>Impacted Units</b></td>
