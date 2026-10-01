@@ -28,6 +28,9 @@ public class CifRec implements Serializable {
     private String address4;
     private String address5;
     private String postCode;
+    private String icType; // PAS/KTP/SIU...
+    private String passportNo; // only populated when icType is PAS
+    private String passportExpiryDate; // YYYYMMDD, only populated when icType is PAS
 
     @Override
     public String toString() {
@@ -46,6 +49,9 @@ public class CifRec implements Serializable {
                 ", address4='" + address4 + '\'' +
                 ", address5='" + address5 + '\'' +
                 ", postCode='" + postCode + '\'' +
+                ", icType='" + icType + '\'' +
+                ", passportNo='" + passportNo + '\'' +
+                ", passportExpiryDate='" + passportExpiryDate + '\'' +
                 '}';
     }
 }

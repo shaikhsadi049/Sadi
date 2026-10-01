@@ -39,9 +39,15 @@ import org.springframework.stereotype.Service;
 
 import javax.persistence.PersistenceException;
 import javax.validation.Valid;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -50,12 +56,30 @@ import java.util.Optional;
 public class CustomerInquiryCIFINQServiceImpl implements CustomerInquiryCIFINQService {
     private static final Logger LOGGER = LoggerFactory.getLogger(CustomerInquiryCIFINQServiceImpl.class);
     private static final String MOTHER_MAIDEN_NAME_TAG = "TXT_691";
+    private static final String IC_TYPE_TAG = "TXT_696";
+    private static final String PASSPORT_EXPIRY_DATE_TAG = "TXT_762";
+    private static final String IC_TYPE_PASSPORT = "PAS";
     public static final String MNT_CUSTOMER = "CIM09";
     public static final String ACCOUNT_NOT_FOUND_MESSAGE = "No account found for this account {}";
     public static final String CUSTOMER_NOT_FOUND_MESSAGE = "No customer found for this customer {}";
     public static final String ACCOUNT_CLOSED_MESSAGE = "Account is closed {}";
     public static final String START_GETTING_CUSTOMERS_MESSAGE = "Start getting customers {}";
     public static final String END_GETTING_CUSTOMERS_MESSAGE = "End getting customers {}";
+
+    private static final DateTimeFormatter PASSPORT_EXPIRY_DATE_OUTPUT_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
+    /**
+     * The passport expiry date is kept as free text in the UDF table, so the value is normalised to the
+     * YYYYMMDD format expected by the consumer instead of being passed through as it was captured.
+     */
+    private static final List<DateTimeFormatter> PASSPORT_EXPIRY_DATE_INPUT_FORMATS = Collections.unmodifiableList(
+            Arrays.asList(
+                    passportExpiryDateFormat("yyyyMMdd"),
+                    passportExpiryDateFormat("dd/MM/yyyy"),
+                    passportExpiryDateFormat("dd-MM-yyyy"),
+                    passportExpiryDateFormat("dd.MM.yyyy"),
+                    passportExpiryDateFormat("dd-MMM-yyyy"),
+                    passportExpiryDateFormat("yyyy-MM-dd"),
+                    passportExpiryDateFormat("yyyy/MM/dd")));
 
     private final CustomerCardRepository customerCardRepository;
     private final CustomerRepository customerRepository;
@@ -261,6 +285,8 @@ public class CustomerInquiryCIFINQServiceImpl implements CustomerInquiryCIFINQSe
                 response.setCifGender(individual.getSex().getValue());
             }
         }
+
+        populatePassportDetails(response, customer.getId());
         LOGGER.info("End populateCustomerProfile {}", LocalDateTime.now());
         if (requestBody.getCifInqRq().getAcctType().equalsIgnoreCase(CustomerProfileInquiryType.ATM_CARD.getValue())) {
             response.setAtmCardNo(requestBody.getCifInqRq().getAcctId());
@@ -281,18 +307,83 @@ public class CustomerInquiryCIFINQServiceImpl implements CustomerInquiryCIFINQSe
     }
 
     private String fetchCustomerMotherMaidenName(long customerId) throws NGISQLException {
-        String customerMotherMaidenName = "";
+        return fetchCustomerUdfFieldValue(customerId, MOTHER_MAIDEN_NAME_TAG);
+    }
+
+    private String fetchCustomerUdfFieldValue(long customerId, String fieldTag) throws NGISQLException {
+        String fieldValue;
         try {
             String customerIdStr = customerId + "";
-            LOGGER.info("Start getting mother name {}", LocalDateTime.now());
-            customerMotherMaidenName = queryExecutorCustomerInquiry.getMotherNameByCustId(customerIdStr, MOTHER_MAIDEN_NAME_TAG, MNT_CUSTOMER);
-            LOGGER.info("End getting mother name {}", LocalDateTime.now());
+            LOGGER.info("Start getting udf field {} {}", fieldTag, LocalDateTime.now());
+            fieldValue = queryExecutorCustomerInquiry.getUdfFieldValueByCustId(customerIdStr, fieldTag, MNT_CUSTOMER);
+            LOGGER.info("End getting udf field {} {}", fieldTag, LocalDateTime.now());
         } catch (PersistenceException e) {
-            LOGGER.error("IB fetchCustomerMotherMaidenName error for customerId {}", customerId);
-            CustomError error = new CustomError(MNT_CUSTOMER, "IB fetchCustomerMotherMaidenName error ", HttpStatus.NOT_FOUND.getReasonPhrase());
+            LOGGER.error("IB fetchCustomerUdfFieldValue error for customerId {} and field tag {}", customerId, fieldTag);
+            CustomError error = new CustomError(MNT_CUSTOMER, "IB fetchCustomerUdfFieldValue error ", HttpStatus.NOT_FOUND.getReasonPhrase());
             throw new NGISQLException(Collections.singletonList(error));
         }
-        return customerMotherMaidenName;
+        return fieldValue;
+    }
+
+    /**
+     * Populates the identity card type together with the passport number and passport expiry date.
+     * The passport fields are only meaningful for a passport holder, so they are left empty for every
+     * other identity card type.
+     */
+    private void populatePassportDetails(CifRec response, long customerId) throws NGISQLException {
+        String icType = trimToNull(fetchCustomerUdfFieldValue(customerId, IC_TYPE_TAG));
+        response.setIcType(icType);
+
+        if (!IC_TYPE_PASSPORT.equalsIgnoreCase(icType)) {
+            LOGGER.info("Skipping passport details for customer {} because icType is {}", customerId, icType);
+            response.setPassportNo(null);
+            response.setPassportExpiryDate(null);
+            return;
+        }
+
+        response.setPassportNo(trimToNull(fetchCustomerNationalId(customerId)));
+        String passportExpiryDate = trimToNull(fetchCustomerUdfFieldValue(customerId, PASSPORT_EXPIRY_DATE_TAG));
+        response.setPassportExpiryDate(passportExpiryDate == null ? null : formatPassportExpiryDate(passportExpiryDate));
+    }
+
+    private String fetchCustomerNationalId(long customerId) throws NGISQLException {
+        try {
+            LOGGER.info("Start getting national id {}", LocalDateTime.now());
+            String nationalId = queryExecutorCustomerInquiry.getNationalIdByCustomerId(customerId);
+            LOGGER.info("End getting national id {}", LocalDateTime.now());
+            return nationalId;
+        } catch (PersistenceException e) {
+            LOGGER.error("IB fetchCustomerNationalId error for customerId {}", customerId);
+            CustomError error = new CustomError(MNT_CUSTOMER, "IB fetchCustomerNationalId error ", HttpStatus.NOT_FOUND.getReasonPhrase());
+            throw new NGISQLException(Collections.singletonList(error));
+        }
+    }
+
+    private static String formatPassportExpiryDate(String passportExpiryDate) {
+        for (DateTimeFormatter inputFormat : PASSPORT_EXPIRY_DATE_INPUT_FORMATS) {
+            try {
+                return LocalDate.parse(passportExpiryDate, inputFormat).format(PASSPORT_EXPIRY_DATE_OUTPUT_FORMAT);
+            } catch (DateTimeParseException e) {
+                LOGGER.debug("Passport expiry date {} does not match one of the supported formats", passportExpiryDate);
+            }
+        }
+        LOGGER.warn("Passport expiry date {} is in an unsupported format, it is returned as it is stored", passportExpiryDate);
+        return passportExpiryDate;
+    }
+
+    private static DateTimeFormatter passportExpiryDateFormat(String pattern) {
+        return new DateTimeFormatterBuilder()
+                .parseCaseInsensitive()
+                .appendPattern(pattern)
+                .toFormatter(Locale.ENGLISH);
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmedValue = value.trim();
+        return trimmedValue.isEmpty() ? null : trimmedValue;
     }
 
     private String fetchCardForCIF(final long customerId) throws NGISQLException {

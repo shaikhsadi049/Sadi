@@ -22,12 +22,15 @@ public class QueryExecutorCustomerInquiry {
     public static final String GET_TD_CUST_ID_BY_ACCT_NO = "select COD_CUST as customerId, COD_ACCT_STAT as accountStatus" +
             " from vwe_td_acct_mast where LPAD(TRIM(cod_acct_no), 20, 0) = LPAD('%s', 20, 0) and flg_mnt_status = 'A' and rownum < 2";
 
-    public static final String GET_MOTHER_NAME_BY_CUST_ID = "select field_value" +
+    public static final String GET_UDF_FIELD_VALUE_BY_CUST_ID = "select field_value" +
             " from udf_cust_log_details" +
             " where cod_field_tag = '%s'" +
             " and cod_cust_id = '%s'" +
             " and cod_task = '%s'" +
             " and flg_mnt_status ='A' and rownum < 2";
+
+    public static final String GET_NATIONAL_ID_BY_CUSTOMER_ID = "select cod_cust_natl_id" +
+            " from ci_custmast where cod_cust_id = ? and rownum < 2";
 
     public static final String GET_ATM_CARD_BY_CUSTOMER_ID = "select cod_Card_no from" +
             " ( select cod_Card_no , rank() over (ORDER BY dat_issue asc , dat_last_mnt asc ) last_issued" +
@@ -38,11 +41,19 @@ public class QueryExecutorCustomerInquiry {
     @Autowired
     private JdbcTemplate mainJdbcTemplate;
     private static final Logger logger = LoggerFactory.getLogger(QueryExecutorCustomerInquiry.class);
-    public String getMotherNameByCustId(String customerId, String motherNameTag, String mntCustomer){
-        String sql = String.format(GET_MOTHER_NAME_BY_CUST_ID, motherNameTag, customerId, mntCustomer);
+    public String getUdfFieldValueByCustId(String customerId, String fieldTag, String mntCustomer){
+        String sql = String.format(GET_UDF_FIELD_VALUE_BY_CUST_ID, fieldTag, customerId, mntCustomer);
         try {
-            logger.info("Sql getMotherNameByCustId {}", sql);
+            logger.info("Sql getUdfFieldValueByCustId {}", sql);
             return mainJdbcTemplate.queryForObject(sql, String.class);
+        } catch (EmptyResultDataAccessException e) {
+            return null;
+        }
+    }
+    public String getNationalIdByCustomerId(long customerId){
+        try {
+            logger.info("Sql getNationalIdByCustomerId {}", GET_NATIONAL_ID_BY_CUSTOMER_ID);
+            return mainJdbcTemplate.queryForObject(GET_NATIONAL_ID_BY_CUSTOMER_ID, String.class, customerId);
         } catch (EmptyResultDataAccessException e) {
             return null;
         }
