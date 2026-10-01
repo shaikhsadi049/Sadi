@@ -2,9 +2,15 @@ package com.oracle.fcr.ngi.mfcifinq.service.impl;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Locale;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,7 +70,29 @@ public class CustomerMFInqCIFServiceImpl implements CustomerMFInqCIFService {
     public static final String END_GETTING_CUSTOMERS_MESSAGE = "End getting customers {}";
     public static final String ACCOUNT_NOT_FOUND_MESSAGE = "No account found for this account {}";
     public static final String ACCOUNT_CLOSED_MESSAGE = "Account is closed {}";
-    
+
+    /** Customer UDF field tag holding the identity card type. */
+    private static final String IC_TYPE_TAG = "TXT_696";
+    /** Customer UDF field tag holding the passport expiry date. */
+    private static final String PASSPORT_EXPIRY_DATE_TAG = "TXT_762";
+    /** Identity card type of a passport holder. */
+    private static final String IC_TYPE_PASSPORT = "PAS";
+
+    private static final DateTimeFormatter PASSPORT_EXPIRY_DATE_OUTPUT_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
+    /**
+     * The passport expiry date is kept as free text in the UDF table, so the value is normalised to
+     * the YYYYMMDD format the consumer expects instead of being passed through as it was captured.
+     */
+    private static final List<DateTimeFormatter> PASSPORT_EXPIRY_DATE_INPUT_FORMATS = Collections.unmodifiableList(
+            Arrays.asList(
+                    passportExpiryDateFormat("yyyyMMdd"),
+                    passportExpiryDateFormat("dd/MM/yyyy"),
+                    passportExpiryDateFormat("dd-MM-yyyy"),
+                    passportExpiryDateFormat("dd.MM.yyyy"),
+                    passportExpiryDateFormat("dd-MMM-yyyy"),
+                    passportExpiryDateFormat("yyyy-MM-dd"),
+                    passportExpiryDateFormat("yyyy/MM/dd")));
+
 
 	@Override
 	public Response mfCifInquiry(MFCifInquiryRequest requestBody)
@@ -89,6 +117,7 @@ public class CustomerMFInqCIFServiceImpl implements CustomerMFInqCIFService {
         	acctType="90";
         }
         cifInfo = procedureExecutorMFCifInq.getMFCifsumData(req,acctId,acctType);
+        populatePassportDetails(cifInfo);
         if(cifInfo.size()>1||requestBody.getTypeId().equals("91")||requestBody.getTypeId().equals("99")) {
         	response.setCifInfo(cifInfo);
         	response.setResponseCode(GlobalConstant.SUCCESS_CODE);
@@ -111,6 +140,71 @@ public class CustomerMFInqCIFServiceImpl implements CustomerMFInqCIFService {
         }
 		return response;
 	}
+	/**
+	 * Sources the identity card type, the passport number and the passport expiry date for every
+	 * customer in the inquiry result. The inquiry cursor does not carry usable values for these
+	 * fields, so they are read from the customer UDFs and from CI_CUSTMAST.
+	 *
+	 * <p>The passport fields are only meaningful for a passport holder, so they are left empty for
+	 * every other identity card type.
+	 */
+	private void populatePassportDetails(List<MFCifInfoRes> cifInfo) {
+		if (cifInfo == null) {
+			return;
+		}
+		for (MFCifInfoRes cif : cifInfo) {
+			String customerId = trimToNull(cif.getCustomerNo());
+			if (customerId == null || "null".equalsIgnoreCase(customerId)) {
+				logger.warn("Skipping passport details because the inquiry result carries no customer number");
+				continue;
+			}
+
+			String icType = trimToNull(queryExecutorCustomerInquiry.getUdfFieldValueByCustId(customerId, IC_TYPE_TAG));
+			cif.setIcType(icType);
+
+			if (!IC_TYPE_PASSPORT.equalsIgnoreCase(icType)) {
+				logger.info("Skipping passport details for customer {} because icType is {}", customerId, icType);
+				cif.setPassportNo(null);
+				cif.setPassportExpiryDate(null);
+				continue;
+			}
+
+			cif.setPassportNo(trimToNull(queryExecutorCustomerInquiry.getNationalIdByCustomerId(customerId)));
+			String passportExpiryDate = trimToNull(
+					queryExecutorCustomerInquiry.getUdfFieldValueByCustId(customerId, PASSPORT_EXPIRY_DATE_TAG));
+			cif.setPassportExpiryDate(
+					passportExpiryDate == null ? null : formatPassportExpiryDate(passportExpiryDate));
+		}
+	}
+
+	private static String formatPassportExpiryDate(String passportExpiryDate) {
+		for (DateTimeFormatter inputFormat : PASSPORT_EXPIRY_DATE_INPUT_FORMATS) {
+			try {
+				return LocalDate.parse(passportExpiryDate, inputFormat).format(PASSPORT_EXPIRY_DATE_OUTPUT_FORMAT);
+			} catch (DateTimeParseException e) {
+				logger.debug("Passport expiry date {} does not match one of the supported formats", passportExpiryDate);
+			}
+		}
+		logger.warn("Passport expiry date {} is in an unsupported format, it is returned as it is stored",
+				passportExpiryDate);
+		return passportExpiryDate;
+	}
+
+	private static DateTimeFormatter passportExpiryDateFormat(String pattern) {
+		return new DateTimeFormatterBuilder()
+				.parseCaseInsensitive()
+				.appendPattern(pattern)
+				.toFormatter(Locale.ENGLISH);
+	}
+
+	private static String trimToNull(String value) {
+		if (value == null) {
+			return null;
+		}
+		String trimmedValue = value.trim();
+		return trimmedValue.isEmpty() ? null : trimmedValue;
+	}
+
 	 private long verifyAndGetCustomerForATMCard(MFCifInquiryRequest requestBody) throws CustomerInquiryException {
 	        long customerId=0;
 	        
