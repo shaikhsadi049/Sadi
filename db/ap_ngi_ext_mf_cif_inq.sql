@@ -2,21 +2,25 @@
 -- ap_ngi_ext_mf_cif_inq - updated source for the passport response fields
 -- ITRD NGI Service - MF_CIFINQ_Passport v.1.0
 --
--- Applies to all six var_pi_id_type branches ('99','00','30','50','90','91'):
+-- Applied to all six var_pi_id_type branches ('99','00','30','50','90','91'):
 --
---   icType              NEW column. The cursor never returned one, which is
---                       why the service was reading icType off flg_replicate.
+--   icType              new column, the cursor returned none, which is why the
+--                       service was reading icType off flg_replicate.
 --                       Now UDF_CUST_LOG_DETAILS.FIELD_VALUE, TXT_696.
---   passportNo          was ci_custdetl.REF_CUST_PSPT
---                       now ci_custmast.COD_CUST_NATL_ID, only when
+--   passportNo          was ci_custdetl.REF_CUST_PSPT, now
+--                       ci_custmast.COD_CUST_NATL_ID when icType = 'PAS',
+--                       otherwise NULL.
+--   passportExpiryDate  was ci_custdetl.DAT_PSPT_EXPIRY, now
+--                       UDF_CUST_LOG_DETAILS.FIELD_VALUE, TXT_762, when
 --                       icType = 'PAS', otherwise NULL.
---   passportExpiryDate  was ci_custdetl.DAT_PSPT_EXPIRY
---                       now UDF_CUST_LOG_DETAILS.FIELD_VALUE, TXT_762, only
---                       when icType = 'PAS', otherwise NULL. Normalised to
---                       YYYYMMDD by FCR24.ap_ngi_fmt_udf_date, which must be
---                       created first (01_ap_ngi_fmt_udf_date.sql).
 --
--- Every other column is untouched.
+-- TXT_762 is free text. The schema holds it as YYYYMMDD, as DDMMYYYY and as
+-- DD/MM/YYYY, so it is rearranged to YYYYMMDD with SUBSTR after a REGEXP_LIKE
+-- has confirmed the shape. No TO_DATE is used, so no value can raise and no
+-- value can be read under the wrong format. A value that is not a date, such
+-- as SEUMUR HDP, falls off the end of the CASE and returns NULL.
+--
+-- Every other column is untouched, and nothing else is created or dropped.
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION FCR24.ap_ngi_ext_mf_cif_inq(var_pi_trace_id      IN VARCHAR2,
@@ -174,13 +178,27 @@ BEGIN
                                    AND cod_cust_id = TO_CHAR(a.cod_cust_id)
                                    AND flg_mnt_status = 'A'
                                    AND ROWNUM = 1))) = 'PAS' THEN
-                FCR24.ap_ngi_fmt_udf_date((SELECT field_value
-                                             FROM udf_cust_log_details
-                                            WHERE cod_field_tag = 'TXT_762'
-                                              AND cod_task = 'CIM09'
-                                              AND cod_cust_id = TO_CHAR(a.cod_cust_id)
-                                              AND flg_mnt_status = 'A'
-                                              AND ROWNUM = 1))
+                (SELECT CASE
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^(19|20)[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])$') THEN
+                           TRIM(u.field_value)
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^(0[1-9]|[12][0-9]|3[01])(0[1-9]|1[0-2])(19|20)[0-9]{2}$') THEN
+                           SUBSTR(TRIM(u.field_value), 5, 4) ||
+                           SUBSTR(TRIM(u.field_value), 3, 2) ||
+                           SUBSTR(TRIM(u.field_value), 1, 2)
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^[0-9]{1,2}/[0-9]{1,2}/(19|20)[0-9]{2}$') THEN
+                           SUBSTR(TRIM(u.field_value), -4) ||
+                           LPAD(REGEXP_SUBSTR(TRIM(u.field_value), '[^/]+', 1, 2), 2, '0') ||
+                           LPAD(REGEXP_SUBSTR(TRIM(u.field_value), '[^/]+', 1, 1), 2, '0')
+                        END
+                   FROM udf_cust_log_details u
+                  WHERE u.cod_field_tag = 'TXT_762'
+                    AND u.cod_task = 'CIM09'
+                    AND u.cod_cust_id = TO_CHAR(a.cod_cust_id)
+                    AND u.flg_mnt_status = 'A'
+                    AND ROWNUM = 1)
              END AS passportExpiryDate,
              a.flg_staff AS isEmployee,
              a.cod_employee_id AS employeeID,
@@ -380,13 +398,27 @@ BEGIN
                                    AND cod_cust_id = TO_CHAR(a.cod_cust_id)
                                    AND flg_mnt_status = 'A'
                                    AND ROWNUM = 1))) = 'PAS' THEN
-                FCR24.ap_ngi_fmt_udf_date((SELECT field_value
-                                             FROM udf_cust_log_details
-                                            WHERE cod_field_tag = 'TXT_762'
-                                              AND cod_task = 'CIM09'
-                                              AND cod_cust_id = TO_CHAR(a.cod_cust_id)
-                                              AND flg_mnt_status = 'A'
-                                              AND ROWNUM = 1))
+                (SELECT CASE
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^(19|20)[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])$') THEN
+                           TRIM(u.field_value)
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^(0[1-9]|[12][0-9]|3[01])(0[1-9]|1[0-2])(19|20)[0-9]{2}$') THEN
+                           SUBSTR(TRIM(u.field_value), 5, 4) ||
+                           SUBSTR(TRIM(u.field_value), 3, 2) ||
+                           SUBSTR(TRIM(u.field_value), 1, 2)
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^[0-9]{1,2}/[0-9]{1,2}/(19|20)[0-9]{2}$') THEN
+                           SUBSTR(TRIM(u.field_value), -4) ||
+                           LPAD(REGEXP_SUBSTR(TRIM(u.field_value), '[^/]+', 1, 2), 2, '0') ||
+                           LPAD(REGEXP_SUBSTR(TRIM(u.field_value), '[^/]+', 1, 1), 2, '0')
+                        END
+                   FROM udf_cust_log_details u
+                  WHERE u.cod_field_tag = 'TXT_762'
+                    AND u.cod_task = 'CIM09'
+                    AND u.cod_cust_id = TO_CHAR(a.cod_cust_id)
+                    AND u.flg_mnt_status = 'A'
+                    AND ROWNUM = 1)
              END AS passportExpiryDate,
              a.flg_staff AS isEmployee,
              a.cod_employee_id AS employeeID,
@@ -588,13 +620,27 @@ BEGIN
                                    AND cod_cust_id = TO_CHAR(a.cod_cust_id)
                                    AND flg_mnt_status = 'A'
                                    AND ROWNUM = 1))) = 'PAS' THEN
-                FCR24.ap_ngi_fmt_udf_date((SELECT field_value
-                                             FROM udf_cust_log_details
-                                            WHERE cod_field_tag = 'TXT_762'
-                                              AND cod_task = 'CIM09'
-                                              AND cod_cust_id = TO_CHAR(a.cod_cust_id)
-                                              AND flg_mnt_status = 'A'
-                                              AND ROWNUM = 1))
+                (SELECT CASE
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^(19|20)[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])$') THEN
+                           TRIM(u.field_value)
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^(0[1-9]|[12][0-9]|3[01])(0[1-9]|1[0-2])(19|20)[0-9]{2}$') THEN
+                           SUBSTR(TRIM(u.field_value), 5, 4) ||
+                           SUBSTR(TRIM(u.field_value), 3, 2) ||
+                           SUBSTR(TRIM(u.field_value), 1, 2)
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^[0-9]{1,2}/[0-9]{1,2}/(19|20)[0-9]{2}$') THEN
+                           SUBSTR(TRIM(u.field_value), -4) ||
+                           LPAD(REGEXP_SUBSTR(TRIM(u.field_value), '[^/]+', 1, 2), 2, '0') ||
+                           LPAD(REGEXP_SUBSTR(TRIM(u.field_value), '[^/]+', 1, 1), 2, '0')
+                        END
+                   FROM udf_cust_log_details u
+                  WHERE u.cod_field_tag = 'TXT_762'
+                    AND u.cod_task = 'CIM09'
+                    AND u.cod_cust_id = TO_CHAR(a.cod_cust_id)
+                    AND u.flg_mnt_status = 'A'
+                    AND ROWNUM = 1)
              END AS passportExpiryDate,
              a.flg_staff AS isEmployee,
              a.cod_employee_id AS employeeID,
@@ -797,13 +843,27 @@ BEGIN
                                    AND cod_cust_id = TO_CHAR(a.cod_cust_id)
                                    AND flg_mnt_status = 'A'
                                    AND ROWNUM = 1))) = 'PAS' THEN
-                FCR24.ap_ngi_fmt_udf_date((SELECT field_value
-                                             FROM udf_cust_log_details
-                                            WHERE cod_field_tag = 'TXT_762'
-                                              AND cod_task = 'CIM09'
-                                              AND cod_cust_id = TO_CHAR(a.cod_cust_id)
-                                              AND flg_mnt_status = 'A'
-                                              AND ROWNUM = 1))
+                (SELECT CASE
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^(19|20)[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])$') THEN
+                           TRIM(u.field_value)
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^(0[1-9]|[12][0-9]|3[01])(0[1-9]|1[0-2])(19|20)[0-9]{2}$') THEN
+                           SUBSTR(TRIM(u.field_value), 5, 4) ||
+                           SUBSTR(TRIM(u.field_value), 3, 2) ||
+                           SUBSTR(TRIM(u.field_value), 1, 2)
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^[0-9]{1,2}/[0-9]{1,2}/(19|20)[0-9]{2}$') THEN
+                           SUBSTR(TRIM(u.field_value), -4) ||
+                           LPAD(REGEXP_SUBSTR(TRIM(u.field_value), '[^/]+', 1, 2), 2, '0') ||
+                           LPAD(REGEXP_SUBSTR(TRIM(u.field_value), '[^/]+', 1, 1), 2, '0')
+                        END
+                   FROM udf_cust_log_details u
+                  WHERE u.cod_field_tag = 'TXT_762'
+                    AND u.cod_task = 'CIM09'
+                    AND u.cod_cust_id = TO_CHAR(a.cod_cust_id)
+                    AND u.flg_mnt_status = 'A'
+                    AND ROWNUM = 1)
              END AS passportExpiryDate,
              a.flg_staff AS isEmployee,
              a.cod_employee_id AS employeeID,
@@ -1005,13 +1065,27 @@ BEGIN
                                    AND cod_cust_id = TO_CHAR(a.cod_cust_id)
                                    AND flg_mnt_status = 'A'
                                    AND ROWNUM = 1))) = 'PAS' THEN
-                FCR24.ap_ngi_fmt_udf_date((SELECT field_value
-                                             FROM udf_cust_log_details
-                                            WHERE cod_field_tag = 'TXT_762'
-                                              AND cod_task = 'CIM09'
-                                              AND cod_cust_id = TO_CHAR(a.cod_cust_id)
-                                              AND flg_mnt_status = 'A'
-                                              AND ROWNUM = 1))
+                (SELECT CASE
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^(19|20)[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])$') THEN
+                           TRIM(u.field_value)
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^(0[1-9]|[12][0-9]|3[01])(0[1-9]|1[0-2])(19|20)[0-9]{2}$') THEN
+                           SUBSTR(TRIM(u.field_value), 5, 4) ||
+                           SUBSTR(TRIM(u.field_value), 3, 2) ||
+                           SUBSTR(TRIM(u.field_value), 1, 2)
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^[0-9]{1,2}/[0-9]{1,2}/(19|20)[0-9]{2}$') THEN
+                           SUBSTR(TRIM(u.field_value), -4) ||
+                           LPAD(REGEXP_SUBSTR(TRIM(u.field_value), '[^/]+', 1, 2), 2, '0') ||
+                           LPAD(REGEXP_SUBSTR(TRIM(u.field_value), '[^/]+', 1, 1), 2, '0')
+                        END
+                   FROM udf_cust_log_details u
+                  WHERE u.cod_field_tag = 'TXT_762'
+                    AND u.cod_task = 'CIM09'
+                    AND u.cod_cust_id = TO_CHAR(a.cod_cust_id)
+                    AND u.flg_mnt_status = 'A'
+                    AND ROWNUM = 1)
              END AS passportExpiryDate,
              a.flg_staff AS isEmployee,
              a.cod_employee_id AS employeeID,
@@ -1220,13 +1294,27 @@ BEGIN
                                    AND cod_cust_id = TO_CHAR(a.cod_cust_id)
                                    AND flg_mnt_status = 'A'
                                    AND ROWNUM = 1))) = 'PAS' THEN
-                FCR24.ap_ngi_fmt_udf_date((SELECT field_value
-                                             FROM udf_cust_log_details
-                                            WHERE cod_field_tag = 'TXT_762'
-                                              AND cod_task = 'CIM09'
-                                              AND cod_cust_id = TO_CHAR(a.cod_cust_id)
-                                              AND flg_mnt_status = 'A'
-                                              AND ROWNUM = 1))
+                (SELECT CASE
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^(19|20)[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])$') THEN
+                           TRIM(u.field_value)
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^(0[1-9]|[12][0-9]|3[01])(0[1-9]|1[0-2])(19|20)[0-9]{2}$') THEN
+                           SUBSTR(TRIM(u.field_value), 5, 4) ||
+                           SUBSTR(TRIM(u.field_value), 3, 2) ||
+                           SUBSTR(TRIM(u.field_value), 1, 2)
+                          WHEN REGEXP_LIKE(TRIM(u.field_value),
+                                           '^[0-9]{1,2}/[0-9]{1,2}/(19|20)[0-9]{2}$') THEN
+                           SUBSTR(TRIM(u.field_value), -4) ||
+                           LPAD(REGEXP_SUBSTR(TRIM(u.field_value), '[^/]+', 1, 2), 2, '0') ||
+                           LPAD(REGEXP_SUBSTR(TRIM(u.field_value), '[^/]+', 1, 1), 2, '0')
+                        END
+                   FROM udf_cust_log_details u
+                  WHERE u.cod_field_tag = 'TXT_762'
+                    AND u.cod_task = 'CIM09'
+                    AND u.cod_cust_id = TO_CHAR(a.cod_cust_id)
+                    AND u.flg_mnt_status = 'A'
+                    AND ROWNUM = 1)
              END AS passportExpiryDate,
              a.flg_staff AS isEmployee,
              a.cod_employee_id AS employeeID,
