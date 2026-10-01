@@ -28,17 +28,17 @@ public class QueryExecutorCustomerInquiry {
     public static final String GET_CUSTID_BY_ATM_CARD="select cod_cust_id from cm_x_custcard_acct_xref WHERE cod_card_no = ? AND flg_mnt_status='A' AND flg_link_unlink='L' AND ROWNUM = 1";
 
     /**
-     * Reads a customer user defined field by its field tag. A customer can hold the same field tag
-     * under more than one maintenance task, so the customer maintenance task (CIM09) is preferred
-     * and the remaining tasks are ordered by task code to keep the result deterministic.
+     * Reads a customer user defined field by its field tag. UDF field tags are scoped to the
+     * maintenance task that captured them, so the task is part of the condition: the same tag under
+     * another task is a different field. Verified against the FCR schema, where TXT_696 and TXT_762
+     * are held under CIM09 only, once per customer.
      */
-    public static final String GET_UDF_FIELD_VALUE_BY_CUST_ID = "select field_value from (" +
-            " select field_value from udf_cust_log_details" +
+    public static final String GET_UDF_FIELD_VALUE_BY_CUST_ID = "select field_value" +
+            " from udf_cust_log_details" +
             " where cod_field_tag = ?" +
             " and cod_cust_id = ?" +
-            " and flg_mnt_status = 'A'" +
-            " order by case when cod_task = '" + MNT_CUSTOMER + "' then 0 else 1 end, cod_task" +
-            " ) where rownum < 2";
+            " and cod_task = ?" +
+            " and flg_mnt_status = 'A' and rownum < 2";
 
     public static final String GET_NATIONAL_ID_BY_CUSTOMER_ID = "select cod_cust_natl_id" +
             " from ci_custmast where cod_cust_id = ? and rownum < 2";
@@ -53,8 +53,9 @@ public class QueryExecutorCustomerInquiry {
 
     public String getUdfFieldValueByCustId(String customerId, String fieldTag){
         try {
-            logger.info("Sql getUdfFieldValueByCustId for customer {} and field tag {}", customerId, fieldTag);
-            return mainJdbcTemplate.queryForObject(GET_UDF_FIELD_VALUE_BY_CUST_ID, String.class, fieldTag, customerId);
+            logger.debug("Sql getUdfFieldValueByCustId for customer {} and field tag {}", customerId, fieldTag);
+            return mainJdbcTemplate.queryForObject(GET_UDF_FIELD_VALUE_BY_CUST_ID, String.class,
+                    fieldTag, customerId, MNT_CUSTOMER);
         } catch (EmptyResultDataAccessException e) {
             return null;
         }
@@ -62,7 +63,7 @@ public class QueryExecutorCustomerInquiry {
 
     public String getNationalIdByCustomerId(String customerId){
         try {
-            logger.info("Sql getNationalIdByCustomerId for customer {}", customerId);
+            logger.debug("Sql getNationalIdByCustomerId for customer {}", customerId);
             return mainJdbcTemplate.queryForObject(GET_NATIONAL_ID_BY_CUSTOMER_ID, String.class, customerId);
         } catch (EmptyResultDataAccessException e) {
             return null;
