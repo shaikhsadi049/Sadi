@@ -1,0 +1,60 @@
+<p>Hi Harsh,</p>
+
+<p>I have resolved the issue for <b>NGI FC_MF_CIFINQ</b> (ITRD MF_CIFINQ_Passport v1.0).
+Please find the resolution details and deployment prerequisites below:</p>
+
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11pt;width:100%;">
+  <tr style="background-color:#f2f2f2;">
+    <th align="left" style="width:22%;">Category</th>
+    <th align="left">Details</th>
+  </tr>
+  <tr>
+    <td><b>Issue</b></td>
+    <td>passportNo and passportExpiryDate returned by the service, consumed by DBank PRO for SID opening, were invalid. BDI requested the data source for these fields to be changed.</td>
+  </tr>
+  <tr>
+    <td><b>Analysis</b></td>
+    <td>Root cause in the DB function <b>ap_ngi_ext_mf_cif_inq</b>. The cursor sourced passportNo from ci_custdetl.REF_CUST_PSPT and passportExpiryDate from ci_custdetl.DAT_PSPT_EXPIRY, which the bank does not maintain. It also returned no icType column at all, so the Java layer was mapping icType from flg_replicate, a replication flag unrelated to identity type.</td>
+  </tr>
+  <tr>
+    <td><b>Fix Details</b></td>
+    <td>Re-sourced the three fields in the function per the ITRD, in all six var_pi_id_type branches (99, 00, 30, 50, 90, 91):
+      <ul style="margin:4px 0 4px 18px;padding:0;">
+        <li>icType &ndash; new cursor column, from UDF TXT_696</li>
+        <li>passportNo &ndash; from CI_CUSTMAST.COD_CUST_NATL_ID, only when icType = 'PAS'</li>
+        <li>passportExpiryDate &ndash; from UDF TXT_762, only when icType = 'PAS', normalised to YYYYMMDD</li>
+      </ul>
+      For any other icType both passport fields return NULL. Java change is a single line in <b>MFCIFInqResWrapper</b>, reading icType from the new cursor column. No new DB object; the other response fields are untouched.</td>
+  </tr>
+  <tr>
+    <td><b>Testing Done</b></td>
+    <td>Verified in UAT via Postman. CIF 1786984 (KTP) now returns icType = "KTP" with both passport fields NULL, as per the ITRD. Previously icType returned the replication flag "N".</td>
+  </tr>
+  <tr>
+    <td><b>Deployment Prerequisite</b></td>
+    <td><b>Crucial:</b> the function must be deployed <b>before</b> the JAR, as the JAR reads the new icType cursor column. The UDF reads are scoped to COD_TASK = 'CIM09'; please confirm TXT_696 and TXT_762 are captured under the same task in the target environment.</td>
+  </tr>
+  <tr>
+    <td><b>Artifact Location</b></td>
+    <td>DB script and updated JAR: D:\OpenShift\FCRNGIMFCifInq\&lt;date&gt;\<br>
+        The pre-change function is kept as ap_ngi_ext_mf_cif_inq_OLD.sql for rollback, to be rolled back together with the backup JAR.</td>
+  </tr>
+  <tr>
+    <td><b>Next Step</b></td>
+    <td>Deployment to the UAT Linux environment, followed by end-to-end testing with DBank PRO.</td>
+  </tr>
+  <tr>
+    <td><b>Impacted Units</b></td>
+    <td>Service: FCRNGIMFCifInq<br>
+        DB Function: ap_ngi_ext_mf_cif_inq<br>
+        Java Class: MFCIFInqResWrapper</td>
+  </tr>
+  <tr>
+    <td><b>Open Point</b></td>
+    <td>The only PAS customer in UAT is CIF 14508534, whose COD_CUST_NATL_ID holds a sixteen digit value (NIK shape) where the ITRD sample is AB1234567Z. The mapping follows the ITRD exactly, but has not been exercised against a realistic passport number. Request BDI to confirm against production before SIT sign off.</td>
+  </tr>
+</table>
+
+<p>Please let me know if any further detail is required.</p>
+
+<p>Thanks &amp; Regards,<br>Shaikh Sadi</p>
