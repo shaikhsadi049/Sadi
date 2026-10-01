@@ -64,11 +64,12 @@ public class MFCIFInqResWrapper {
 		res.setCustomerCrrCode(String.valueOf(map.get("cust_crr_code")).equals("null")?null:String.valueOf(map.get("cust_crr_code")));
 		res.setCifType((String)map.get("flg_ic_typ"));
 		res.setFlgReplicate((String)map.get("flg_replicate"));
-		// icType, passportNo and passportExpiryDate are not taken from the inquiry cursor any more,
-		// CustomerMFInqCIFServiceImpl sources them from the customer UDFs and CI_CUSTMAST instead.
+		res.setIcType((String)map.get("ICTYPE"));
 		res.setCustType((String)map.get("FLG_CUST_TYP"));
 		res.setCitizenType((String)map.get("CITIZENTYPE"));
 		res.setCifLob(String.valueOf(map.get("CIFLOB")));
+		res.setPassportNo((String)map.get("PASSPORTNO"));
+		res.setPassportExpiryDate((String)map.get("PASSPORTEXPIRYDATE"));
 		res.setIsEmployee((String)map.get("ISEMPLOYEE"));
 		res.setEmployeeID((String)map.get("EMPLOYEEID"));
 		res.setReligion((String)map.get("RELIGION"));

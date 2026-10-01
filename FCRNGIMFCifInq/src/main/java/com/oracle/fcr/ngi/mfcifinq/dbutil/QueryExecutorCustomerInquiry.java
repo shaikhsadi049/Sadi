@@ -21,50 +21,12 @@ public class QueryExecutorCustomerInquiry {
     @Autowired
     private JdbcTemplate mainJdbcTemplate;
     private static final Logger logger = LoggerFactory.getLogger(QueryExecutorCustomerInquiry.class);
-
-    /** Customer maintenance task the customer user defined fields are captured under. */
-    public static final String MNT_CUSTOMER = "CIM09";
     
     public static final String GET_CUSTID_BY_ATM_CARD="select cod_cust_id from cm_x_custcard_acct_xref WHERE cod_card_no = ? AND flg_mnt_status='A' AND flg_link_unlink='L' AND ROWNUM = 1";
-
-    /**
-     * Reads a customer user defined field by its field tag. UDF field tags are scoped to the
-     * maintenance task that captured them, so the task is part of the condition: the same tag under
-     * another task is a different field. Verified against the FCR schema, where TXT_696 and TXT_762
-     * are held under CIM09 only, once per customer.
-     */
-    public static final String GET_UDF_FIELD_VALUE_BY_CUST_ID = "select field_value" +
-            " from udf_cust_log_details" +
-            " where cod_field_tag = ?" +
-            " and cod_cust_id = ?" +
-            " and cod_task = ?" +
-            " and flg_mnt_status = 'A' and rownum < 2";
-
-    public static final String GET_NATIONAL_ID_BY_CUSTOMER_ID = "select cod_cust_natl_id" +
-            " from ci_custmast where cod_cust_id = ? and rownum < 2";
-
+  
     public String getCustomerIdByAtmCard(String cardNumber){
         try {
             return mainJdbcTemplate.queryForObject(GET_CUSTID_BY_ATM_CARD, String.class, cardNumber);
-        } catch (EmptyResultDataAccessException e) {
-            return null;
-        }
-    }
-
-    public String getUdfFieldValueByCustId(String customerId, String fieldTag){
-        try {
-            logger.debug("Sql getUdfFieldValueByCustId for customer {} and field tag {}", customerId, fieldTag);
-            return mainJdbcTemplate.queryForObject(GET_UDF_FIELD_VALUE_BY_CUST_ID, String.class,
-                    fieldTag, customerId, MNT_CUSTOMER);
-        } catch (EmptyResultDataAccessException e) {
-            return null;
-        }
-    }
-
-    public String getNationalIdByCustomerId(String customerId){
-        try {
-            logger.debug("Sql getNationalIdByCustomerId for customer {}", customerId);
-            return mainJdbcTemplate.queryForObject(GET_NATIONAL_ID_BY_CUSTOMER_ID, String.class, customerId);
         } catch (EmptyResultDataAccessException e) {
             return null;
         }
