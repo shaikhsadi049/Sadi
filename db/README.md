@@ -31,6 +31,16 @@ Three columns, in all six `var_pi_id_type` branches (`99`, `00`, `30`, `50`,
 raise and no value can be read under the wrong format. A value that is not a
 date, such as `SEUMUR HDP`, returns `NULL`.
 
+## Files
+
+| File | Use |
+|---|---|
+| `ap_ngi_ext_mf_cif_inq.sql` | the change, deploy this |
+| `ap_ngi_ext_mf_cif_inq_OLD.sql` | the function as it stood before, for rollback |
+
+The rollback script carries a comment header; everything below it is the
+original function byte for byte.
+
 ## Deploy
 
 ```sql
@@ -58,6 +68,16 @@ The row map is case insensitive, which is why the existing code mixes
 `map.get("flg_replicate")` with `map.get("PASSPORTNO")`. `ICTYPE` is spelled in
 upper case because that is the label Oracle reports for an unquoted alias, so
 the lookup holds either way.
+
+## Rollback
+
+```sql
+@ap_ngi_ext_mf_cif_inq_OLD.sql
+```
+
+and put `MFCIFInqResWrapper` back to
+`res.setIcType((String) map.get("flg_replicate"))`, otherwise `icType` comes
+back empty. The old jar does this already, so redeploying it is enough.
 
 ## Open point for BDI
 
