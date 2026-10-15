@@ -2685,32 +2685,32 @@ CREATE OR REPLACE PACKAGE BODY PK_OL_XFINT AS
                                PI_ACCT_ID ||
                                '</CPTYACNO><CPTYCCY/><BYODROF1>/' ||
                                PI_ACCT_ID || '</BYODROF1><BYODROF2>' ||
-                               SWIFT_X(VAR_REL_TXN_STORE.BENEFICIARY_NAME) ||
+                               SWIFT_X(SUBSTR(VAR_REL_TXN_STORE.BENEFICIARY_NAME, 1, 35)) ||
                                '</BYODROF2><BYODROF3>' ||
-                               SWIFT_X(VAR_REL_TXN_STORE.CUSTOMER_ADDRESS1) ||
+                               SWIFT_X(SUBSTR(VAR_REL_TXN_STORE.CUSTOMER_ADDRESS1, 1, 35)) ||
                                '</BYODROF3><BYODROF4>' ||
-                               SWIFT_X(VAR_REL_TXN_STORE.CUSTOMER_ADDRESS2) ||
+                               SWIFT_X(SUBSTR(VAR_REL_TXN_STORE.CUSTOMER_ADDRESS2, 1, 35)) ||
                                '</BYODROF4><BYODROF5>' ||
-                               SWIFT_X(VAR_REL_TXN_STORE.CUSTOMER_ADDRESS3) ||
+                               SWIFT_X(SUBSTR(VAR_REL_TXN_STORE.CUSTOMER_ADDRESS3, 1, 35)) ||
                                '</BYODROF5><OURCORR1/><OURCORR2/><OURCORR3/><OURCORR4/><OURCORR5/><RCVRCORR1/><RCVRCORR2/><RCVRCORR3/><RCVRCORR4/><RCVRCORR5/><INTERMEDY1>' ||
                                VAR_XML_INTERMEDY1 ||
                                '</INTERMEDY1><INTERMEDY2/><INTERMEDY3>' ||
-                               SWIFT_X(PI_BANK_CORESPONDENT1) ||
+                               SWIFT_X(SUBSTR(PI_BANK_CORESPONDENT1, 1, 35)) ||
                                '</INTERMEDY3><INTERMEDY4>' ||
-                               SWIFT_X(PI_BANK_CORESPONDENT2) ||
+                               SWIFT_X(SUBSTR(PI_BANK_CORESPONDENT2, 1, 35)) ||
                                '</INTERMEDY4><INTERMEDY5/><AWI1>' ||
                                PI_BENF_ID || '</AWI1><AWI2>' ||
-                               SWIFT_X(PI_BENF_BNAME) || '</AWI2><AWI3>' ||
-                               SWIFT_X(VAR_XML_AWI3) || '</AWI3><AWI4>' ||
-                               SWIFT_X(VAR_XML_AWI4) || '</AWI4><AWI5>' ||
-                               SWIFT_X(VAR_REL_TXN_STORE.CUSTOMER_BANK_ADDRESS3) ||
+                               SWIFT_X(SUBSTR(PI_BENF_BNAME, 1, 35)) || '</AWI2><AWI3>' ||
+                               SWIFT_X(SUBSTR(VAR_XML_AWI3, 1, 35)) || '</AWI3><AWI4>' ||
+                               SWIFT_X(SUBSTR(VAR_XML_AWI4, 1, 35)) || '</AWI4><AWI5>' ||
+                               SWIFT_X(SUBSTR(VAR_REL_TXN_STORE.CUSTOMER_BANK_ADDRESS3, 1, 35)) ||
                                '</AWI5><BENINST1>/' ||
                                VAR_REL_TXN_STORE.DETAILS.COUNTER_PARTY_ACCOUNT_ID ||
-                               '</BENINST1><BENINST2>' || SWIFT_X(PI_BENF_NAME) ||
+                               '</BENINST1><BENINST2>' || SWIFT_X(SUBSTR(PI_BENF_NAME, 1, 35)) ||
                                '</BENINST2><BENINST3>' ||
-                               SWIFT_X(VAR_COUNTER_PARTY_DETAIL.ADDRESS_LINE_1) ||
+                               SWIFT_X(SUBSTR(VAR_COUNTER_PARTY_DETAIL.ADDRESS_LINE_1, 1, 35)) ||
                                '</BENINST3><BENINST4>' ||
-                               SWIFT_X(VAR_COUNTER_PARTY_DETAIL.ADDRESS_LINE_2) ||
+                               SWIFT_X(SUBSTR(VAR_COUNTER_PARTY_DETAIL.ADDRESS_LINE_2, 1, 35)) ||
                                '</BENINST4><BENINST5/><PAYDET1>' ||
                                SWIFT_X(VAR_XML_PAYDET1) ||
                                '</PAYDET1><PAYDET2>' ||
