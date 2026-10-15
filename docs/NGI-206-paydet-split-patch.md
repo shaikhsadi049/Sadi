@@ -3,10 +3,13 @@
 Agreed with Oracle on 15 October: 140 characters, split 35+35+35+35.
 
 `PK_OL_XFINT`, function `AP_OL_XFINT_S_MAIN`, inside the `DECLARE` block that
-builds `SWIFT_REQ_MESSAGE` (around line 2604). Three edits, nothing outside this
-block changes.
+builds `SWIFT_REQ_MESSAGE`. Three edits, nothing outside this block changes.
 
-## 1. Declarations — line 2604-2608
+Line numbers below are for the 5574 line file. An earlier copy of the same
+package ran to 5554 lines - identical code, 20 blank lines fewer after line 522 -
+so against that copy every number here is 20 lower.
+
+## 1. Declarations - lines 2625-2629
 
 Was:
 
@@ -35,7 +38,7 @@ Now:
         BEGIN
 ```
 
-## 2. The split — after `VAR_XML_AWI4 := ...;`, line 2616
+## 2. The split - after `VAR_XML_AWI4 := ...;`, line 2636
 
 Add:
 
@@ -53,7 +56,7 @@ four null. That is why this is shorter than the SIMODIS block, which needs its
 `IF` ladder because it is assigning to fields that must keep their previous
 value when the memo is short.
 
-## 3. The XML — line 2656-2658
+## 3. The XML - lines 2676-2678
 
 Was:
 
@@ -82,10 +85,10 @@ FCUBS envelope but not part of the SWIFT field.
 
 ## What this does not change
 
-* **Line 1323** still does `ORIGINAL_REMIT_NO := SUBSTR(PI_MEMO1, 1, 35)`, so
+* **Line 1343** still does `ORIGINAL_REMIT_NO := SUBSTR(PI_MEMO1, 1, 35)`, so
   `PM_REL_TXN_STORE.COD_ORG_REMIT` keeps holding 35 characters. Storing more of
   the memo on the payment log is a separate decision and a separate change.
-* The SIMODIS block (2246-2262) is untouched, so nothing depends on
+* The SIMODIS block (2266-2282) is untouched, so nothing depends on
   `ENABLE_SIMODIS_DCC` here. The FCC split now happens on every standard
   transaction whatever that macro holds.
 * No validation anywhere is changed. A memo longer than 140 still reaches the
