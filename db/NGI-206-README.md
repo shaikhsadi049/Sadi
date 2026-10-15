@@ -32,15 +32,40 @@ the body is recompiled.
 
 ## Deploy
 
+Both scripts now carry what SQL*Plus needs to run them: `SET DEFINE OFF` at the
+top, a `/` after the specification and after the body, and `SHOW ERRORS` after
+each. The source dump they were built from had none of that, which is what made
+the first attempt leave the package **invalid** - without the `/` after
+`END PK_OL_XFINT;` on the specification, SQL*Plus never submits it and reads the
+body as a continuation of the same statement.
+
 ```sql
 @PK_OL_XFINT_NGI-206.sql
-
-SELECT object_name, object_type, status FROM all_objects
- WHERE object_name = 'PK_OL_XFINT';
 ```
 
-Both the spec and the body must come back `VALID`. No jar change, no DB object
-created or dropped.
+`SHOW ERRORS` prints anything that failed to compile, twice - once for the
+specification, once for the body. Both must print `No errors.`
+
+If your tool ignores `SHOW ERRORS`, check it directly:
+
+```sql
+SELECT object_name, object_type, status FROM all_objects
+ WHERE object_name = 'PK_OL_XFINT';
+
+SELECT line, position, text FROM all_errors
+ WHERE name = 'PK_OL_XFINT' ORDER BY sequence;
+```
+
+`PACKAGE` and `PACKAGE BODY` must both read `VALID`, and the second query must
+return no rows. A `PLS-00905: object PK_OL_XFINT is invalid` at runtime means
+one of them did not compile - read `all_errors` before anything else.
+
+In SQL*Plus, if the run stops partway with a blank-line error, add
+`SET SQLBLANKLINES ON` at the top: the package body has blank lines inside its
+blocks, and older SQL*Plus settings treat one as the end of a statement.
+
+Only the body changed, so deploying just the body is enough if you prefer -
+the specification is byte for byte what is already there.
 
 ## Verify
 
