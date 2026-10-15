@@ -1,4 +1,14 @@
-<!-- Resolution mail for NGI-206 (NGI XFINT - bdiMemo1 maximum length). -->
+<!-- Resolution mail for NGI-206 (NGI XFINT - bdiMemo1 maximum length).
+     Written for Outlook, which renders with the Word engine:
+       * sizing and borders are HTML attributes, not CSS
+       * every cell carries its own font, nothing is inherited
+       * no <ul>, no <code> - Word re-indents lists inside table cells
+       * fixed pixel column width on the first column
+     Open in a browser, Ctrl+A, Ctrl+C, paste into Outlook with
+     "Keep Source Formatting".  Opening the file in Word and copying from
+     there works too, and is the most faithful of the two. -->
+
+<div style="font-family:Calibri,Arial,sans-serif;font-size:11pt;">
 
 <p>Hi Harsh,</p>
 
@@ -6,72 +16,78 @@
 maximum length of bdiMemo1 between NGI and IL). Please find the resolution details and
 deployment prerequisites below:</p>
 
-<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11pt;width:100%;">
-  <tr style="background-color:#f2f2f2;">
-    <th align="left" style="width:22%;">Category</th>
-    <th align="left">Details</th>
+<table border="1" cellpadding="6" cellspacing="0" width="100%" style="border-collapse:collapse;border:1px solid #999999;">
+  <tr bgcolor="#F2F2F2">
+    <td width="150" valign="top" style="border:1px solid #999999;"><b><font face="Calibri" size="2">Category</font></b></td>
+    <td valign="top" style="border:1px solid #999999;"><b><font face="Calibri" size="2">Details</font></b></td>
   </tr>
   <tr>
-    <td><b>Issue</b></td>
-    <td>A transaction with bdiMemo1 longer than 35 characters did not reach FCC, so it could not be straight through processed, while the same transaction through IL did. The channel received responseCode 0000000, so the failure was not visible from the NGI side.</td>
+    <td width="150" valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2"><b>Issue</b></font></td>
+    <td valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2">A transaction with bdiMemo1 longer than 35 characters did not reach FCC, so it could not be straight through processed, while the same transaction through IL did. The channel received responseCode 0000000, so the failure was not visible from the NGI side.</font></td>
   </tr>
   <tr>
-    <td><b>Analysis</b></td>
-    <td>Root cause in the DB package <b>PK_OL_XFINT</b>, function <b>AP_OL_XFINT_S_MAIN</b>, where the FCUBS message is built.
-      <ul style="margin:4px 0 4px 18px;padding:0;">
-        <li>The entire memo was placed in a single <b>&lt;PAYDET1&gt;</b> element, with PAYDET2 to PAYDET5 sent empty. PAYDET is one line of MT103 field 70, which is 4*35x, so one element carries 35 characters and FCC did not accept 60.</li>
-        <li>On a rejected FCC reply the package sets its internal swift flag to 0, which skips the PM_TXN_LOG update to TXN_STAT = 1 / MSG_STAT = 5 and the channel_swift_payment_xref insert, but still returns 0000000 to the channel. That is why the legs posted and the channel saw success while the message was never sent.</li>
-      </ul>
-      Confirmed against the UAT defect log of 14 October: the same request with a 35 character memo reached FCC (ext_ref_no 7101262870000118) and the 60 character one did not (7101262870000116), every other field being identical.
-    </td>
+    <td width="150" valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2"><b>Analysis</b></font></td>
+    <td valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2">Root cause in the DB package <b>PK_OL_XFINT</b>, function <b>AP_OL_XFINT_S_MAIN</b>, where the FCUBS message is built.
+      <br>&nbsp;
+      <br>1. The entire memo was placed in a single <b>&lt;PAYDET1&gt;</b> element, with PAYDET2 to PAYDET5 sent empty. PAYDET is one line of MT103 field 70, which is 4*35x, so one element carries 35 characters and FCC did not accept 60.
+      <br>&nbsp;
+      <br>2. On a rejected FCC reply the package sets its internal swift flag to 0, which skips the PM_TXN_LOG update to TXN_STAT = 1 / MSG_STAT = 5 and the channel_swift_payment_xref insert, but still returns 0000000 to the channel. That is why the legs posted and the channel saw success while the message was never sent.
+      <br>&nbsp;
+      <br>Confirmed against the UAT defect log of 14 October: the same request with a 35 character memo reached FCC (ext_ref_no 7101262870000118) and the 60 character one did not (7101262870000116), every other field being identical.</font></td>
   </tr>
   <tr>
-    <td><b>Fix Details</b></td>
-    <td>Two changes, both inside the XML block of AP_OL_XFINT_S_MAIN:
-      <ul style="margin:4px 0 4px 18px;padding:0;">
-        <li><b>Memo split across PAYDET1 to PAYDET4</b>, 35 characters each, which is the 140 character capacity of MT103 field 70. For the reported case PAYDET1 now carries the first 35 characters &ndash; exactly the value FCC already accepted on the 35 character run &ndash; and PAYDET2 carries the remaining 25.</li>
-        <li><b>SWIFT_X added</b>, a body level function that reduces free text to the SWIFT X character set. Free text was previously concatenated into the request unescaped, so a memo containing &amp; or &lt; would make the request malformed and be rejected for a reason unrelated to length. This matches IL, whose own FCC message carries WILLIAM AGUS`SE as "WILLIAM AGUS SE" while keeping the slash in 001/012.</li>
-      </ul>
-      Nothing outside the FCC message is changed. ORIGINAL_REMIT_NO still takes SUBSTR(PI_MEMO1, 1, 35) and everything AP_SAVE_PAYMENT_LOG writes is untouched, so the stored values stay identical to IL's, which cleans the message text only.
-    </td>
+    <td width="150" valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2"><b>Fix Details</b></font></td>
+    <td valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2">Two changes, both inside the XML block of AP_OL_XFINT_S_MAIN:
+      <br>&nbsp;
+      <br>1. <b>Memo split across PAYDET1 to PAYDET4</b>, 35 characters each, which is the 140 character capacity of MT103 field 70. For the reported case PAYDET1 now carries the first 35 characters &ndash; exactly the value FCC already accepted on the 35 character run &ndash; and PAYDET2 carries the remaining 25.
+      <br>&nbsp;
+      <br>2. <b>SWIFT_X added</b>, a body level function that reduces free text to the SWIFT X character set. Free text was previously concatenated into the request unescaped, so a memo containing &amp; or &lt; would make the request malformed and be rejected for a reason unrelated to length. This matches IL, whose own FCC message carries WILLIAM AGUS`SE as "WILLIAM AGUS SE" while keeping the slash in 001/012.
+      <br>&nbsp;
+      <br>Nothing outside the FCC message is changed. ORIGINAL_REMIT_NO still takes SUBSTR(PI_MEMO1, 1, 35) and everything AP_SAVE_PAYMENT_LOG writes is untouched, so the stored values stay identical to IL's, which cleans the message text only.</font></td>
   </tr>
   <tr>
-    <td><b>Testing Done</b></td>
-    <td>Verified in UAT. The package compiled clean, with PK_OL_XFINT and its body both VALID and no rows in ALL_ERRORS.
-      <br>The reported case was re-posted with the same 60 character memo, <i>2012/SIN5030348(1163.68)SIN5035358(23558.48)SIN5035351(1328)</i>, and the message reached FCC. PM_TXN_LOG now shows TXN_STAT = 1 and MSG_STAT = 5, the channel_swift_payment_xref row is written, and the FCC message carries the memo over two elements &ndash; PAYDET1 with the first 35 characters and PAYDET2 with the remaining 25 &ndash; where previously all 60 were in PAYDET1 and the message was not accepted.
-      <br>PM_REL_TXN_STORE reads exactly as before the change, confirming that only the FCC message is affected.</td>
+    <td width="150" valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2"><b>Testing Done</b></font></td>
+    <td valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2">Verified in UAT. The package compiled clean, with PK_OL_XFINT and its body both VALID and no rows in ALL_ERRORS.
+      <br>&nbsp;
+      <br>The reported case was re-posted with the same 60 character memo, 2012/SIN5030348(1163.68)SIN5035358(23558.48)SIN5035351(1328), and the message reached FCC. PM_TXN_LOG now shows TXN_STAT = 1 and MSG_STAT = 5, the channel_swift_payment_xref row is written, and the FCC message carries the memo over two elements &ndash; PAYDET1 with the first 35 characters and PAYDET2 with the remaining 25 &ndash; where previously all 60 were in PAYDET1 and the message was not accepted.
+      <br>&nbsp;
+      <br>PM_REL_TXN_STORE reads exactly as before the change, confirming that only the FCC message is affected.</font></td>
   </tr>
   <tr>
-    <td><b>Deployment Prerequisite</b></td>
-    <td><b>Crucial:</b> the package specification is unchanged, only the body was modified, so no JAR change is required and no DB object is created or dropped.<br>
-        The script carries a <b>/</b> after the specification and after the body. The source extracted from ALL_SOURCE has neither, and without the one after the specification SQL*Plus does not submit it and reads the body as a continuation of the same statement, which leaves the package INVALID and the service returning PLS-00905.<br>
-        After deployment please confirm both objects compiled:
-        <br><code>SELECT object_name, object_type, status FROM all_objects WHERE object_name = 'PK_OL_XFINT';</code>
-        <br><code>SELECT line, position, text FROM all_errors WHERE name = 'PK_OL_XFINT' ORDER BY sequence;</code>
-    </td>
+    <td width="150" valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2"><b>Deployment Prerequisite</b></font></td>
+    <td valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2"><b>Crucial:</b> the package specification is unchanged, only the body was modified, so no JAR change is required and no DB object is created or dropped.
+      <br>&nbsp;
+      <br>The script carries a <b>/</b> after the specification and after the body. The source extracted from ALL_SOURCE has neither, and without the one after the specification SQL*Plus does not submit it and reads the body as a continuation of the same statement, which leaves the package INVALID and the service returning PLS-00905.
+      <br>&nbsp;
+      <br>After deployment please confirm both objects compiled:
+      <br><font face="Courier New" size="2">SELECT object_name, object_type, status FROM all_objects WHERE object_name = 'PK_OL_XFINT';</font>
+      <br><font face="Courier New" size="2">SELECT line, position, text FROM all_errors WHERE name = 'PK_OL_XFINT' ORDER BY sequence;</font></font></td>
   </tr>
   <tr>
-    <td><b>Artifact Location</b></td>
-    <td>DB script: D:\OpenShift\PK_OL_XFINT\&lt;date&gt;\<br>
-        The pre-change package is kept as PK_OL_XFINT_OLD.sql for rollback. It is byte for byte the current source with only the two terminators added, so rolling it back restores the present behaviour exactly.</td>
+    <td width="150" valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2"><b>Artifact Location</b></font></td>
+    <td valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2">DB script: D:\OpenShift\PK_OL_XFINT\&lt;date&gt;\
+      <br>The pre-change package is kept as PK_OL_XFINT_OLD.sql for rollback. It is byte for byte the current source with only the two terminators added, so rolling it back restores the present behaviour exactly.</font></td>
   </tr>
   <tr>
-    <td><b>Next Step</b></td>
-    <td>End to end confirmation with BDI on the reported transaction, and SIT sign off.</td>
+    <td width="150" valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2"><b>Next Step</b></font></td>
+    <td valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2">End to end confirmation with BDI on the reported transaction, and SIT sign off.</font></td>
   </tr>
   <tr>
-    <td><b>Impacted Units</b></td>
-    <td>Service: NGI XFINT<br>
-        DB Package: PK_OL_XFINT<br>
-        Function: AP_OL_XFINT_S_MAIN</td>
+    <td width="150" valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2"><b>Impacted Units</b></font></td>
+    <td valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2">Service: NGI XFINT
+      <br>DB Package: PK_OL_XFINT
+      <br>Function: AP_OL_XFINT_S_MAIN</font></td>
   </tr>
   <tr>
-    <td><b>Open Point</b></td>
-    <td>MT103 field 70 holds 140 characters, so a memo longer than that still cannot be carried in full and the remainder is not sent. Request BDI to confirm the agreed maximum length for bdiMemo1 and whether a longer memo should be rejected at the channel rather than carried partially.<br>
-        It is also worth reading what IL placed in PAYDET1 to PAYDET5 for the same 60 character memo (ext_ref_no 7101262870000117) to confirm the split matches IL exactly.</td>
+    <td width="150" valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2"><b>Open Point</b></font></td>
+    <td valign="top" style="border:1px solid #999999;"><font face="Calibri" size="2">MT103 field 70 holds 140 characters, so a memo longer than that still cannot be carried in full and the remainder is not sent. Request BDI to confirm the agreed maximum length for bdiMemo1 and whether a longer memo should be rejected at the channel rather than carried partially.
+      <br>&nbsp;
+      <br>It is also worth reading what IL placed in PAYDET1 to PAYDET5 for the same 60 character memo (ext_ref_no 7101262870000117) to confirm the split matches IL exactly.</font></td>
   </tr>
 </table>
 
 <p>Please let me know if any further detail is required.</p>
 
 <p>Thanks &amp; Regards,<br>Shaikh Sadi</p>
+
+</div>
