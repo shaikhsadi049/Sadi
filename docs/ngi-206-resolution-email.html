@@ -1,0 +1,77 @@
+<!-- Resolution mail for NGI-206 (NGI XFINT - bdiMemo1 maximum length).
+     The "Testing Done" row is deliberately left as a placeholder: fill it in
+     from the UAT run before sending. Everything else is final. -->
+
+<p>Hi Harsh,</p>
+
+<p>I have resolved the issue for <b>NGI XFINT</b> (Jira <b>NGI-206</b> &ndash; difference in the
+maximum length of bdiMemo1 between NGI and IL). Please find the resolution details and
+deployment prerequisites below:</p>
+
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11pt;width:100%;">
+  <tr style="background-color:#f2f2f2;">
+    <th align="left" style="width:22%;">Category</th>
+    <th align="left">Details</th>
+  </tr>
+  <tr>
+    <td><b>Issue</b></td>
+    <td>A transaction with bdiMemo1 longer than 35 characters did not reach FCC, so it could not be straight through processed, while the same transaction through IL did. The channel received responseCode 0000000, so the failure was not visible from the NGI side.</td>
+  </tr>
+  <tr>
+    <td><b>Analysis</b></td>
+    <td>Root cause in the DB package <b>PK_OL_XFINT</b>, function <b>AP_OL_XFINT_S_MAIN</b>, where the FCUBS message is built.
+      <ul style="margin:4px 0 4px 18px;padding:0;">
+        <li>The entire memo was placed in a single <b>&lt;PAYDET1&gt;</b> element, with PAYDET2 to PAYDET5 sent empty. PAYDET is one line of MT103 field 70, which is 4*35x, so one element carries 35 characters and FCC did not accept 60.</li>
+        <li>On a rejected FCC reply the package sets its internal swift flag to 0, which skips the PM_TXN_LOG update to TXN_STAT = 1 / MSG_STAT = 5 and the channel_swift_payment_xref insert, but still returns 0000000 to the channel. That is why the legs posted and the channel saw success while the message was never sent.</li>
+      </ul>
+      Confirmed against the UAT defect log of 14 October: the same request with a 35 character memo reached FCC (ext_ref_no 7101262870000118) and the 60 character one did not (7101262870000116), every other field being identical.
+    </td>
+  </tr>
+  <tr>
+    <td><b>Fix Details</b></td>
+    <td>Two changes, both inside the XML block of AP_OL_XFINT_S_MAIN:
+      <ul style="margin:4px 0 4px 18px;padding:0;">
+        <li><b>Memo split across PAYDET1 to PAYDET4</b>, 35 characters each, which is the 140 character capacity of MT103 field 70. For the reported case PAYDET1 now carries the first 35 characters &ndash; exactly the value FCC already accepted on the 35 character run &ndash; and PAYDET2 carries the remaining 25.</li>
+        <li><b>SWIFT_X added</b>, a body level function that reduces free text to the SWIFT X character set. Free text was previously concatenated into the request unescaped, so a memo containing &amp; or &lt; would make the request malformed and be rejected for a reason unrelated to length. This matches IL, whose own FCC message carries WILLIAM AGUS`SE as "WILLIAM AGUS SE" while keeping the slash in 001/012.</li>
+      </ul>
+      Nothing outside the FCC message is changed. ORIGINAL_REMIT_NO still takes SUBSTR(PI_MEMO1, 1, 35) and everything AP_SAVE_PAYMENT_LOG writes is untouched, so the stored values stay identical to IL's, which cleans the message text only.
+    </td>
+  </tr>
+  <tr>
+    <td><b>Testing Done</b></td>
+    <td style="background-color:#fff7e6;"><i>&lt;to be completed from the UAT run: re-post the 60 character memo and record TXN_STAT / MSG_STAT, the channel_swift_payment_xref row, and the PAYDET1 / PAYDET2 values in fccprd.mstm_com_pmt_in&gt;</i></td>
+  </tr>
+  <tr>
+    <td><b>Deployment Prerequisite</b></td>
+    <td><b>Crucial:</b> the package specification is unchanged, only the body was modified, so no JAR change is required and no DB object is created or dropped.<br>
+        The script carries a <b>/</b> after the specification and after the body. The source extracted from ALL_SOURCE has neither, and without the one after the specification SQL*Plus does not submit it and reads the body as a continuation of the same statement, which leaves the package INVALID and the service returning PLS-00905.<br>
+        After deployment please confirm both objects compiled:
+        <br><code>SELECT object_name, object_type, status FROM all_objects WHERE object_name = 'PK_OL_XFINT';</code>
+        <br><code>SELECT line, position, text FROM all_errors WHERE name = 'PK_OL_XFINT' ORDER BY sequence;</code>
+    </td>
+  </tr>
+  <tr>
+    <td><b>Artifact Location</b></td>
+    <td>DB script: D:\OpenShift\PK_OL_XFINT\&lt;date&gt;\<br>
+        The pre-change package is kept as PK_OL_XFINT_OLD.sql for rollback. It is byte for byte the current source with only the two terminators added, so rolling it back restores the present behaviour exactly.</td>
+  </tr>
+  <tr>
+    <td><b>Next Step</b></td>
+    <td>Deployment to UAT, re-test of the reported case, and end to end confirmation with BDI.</td>
+  </tr>
+  <tr>
+    <td><b>Impacted Units</b></td>
+    <td>Service: NGI XFINT<br>
+        DB Package: PK_OL_XFINT<br>
+        Function: AP_OL_XFINT_S_MAIN</td>
+  </tr>
+  <tr>
+    <td><b>Open Point</b></td>
+    <td>MT103 field 70 holds 140 characters, so a memo longer than that still cannot be carried in full and the remainder is not sent. Request BDI to confirm the agreed maximum length for bdiMemo1 and whether a longer memo should be rejected at the channel rather than carried partially.<br>
+        It is also worth reading what IL placed in PAYDET1 to PAYDET5 for the same 60 character memo (ext_ref_no 7101262870000117) to confirm the split matches IL exactly.</td>
+  </tr>
+</table>
+
+<p>Please let me know if any further detail is required.</p>
+
+<p>Thanks &amp; Regards,<br>Shaikh Sadi</p>
