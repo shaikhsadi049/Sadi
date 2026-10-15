@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<PCM>
+    <SvcRq>
+        <ChannelId>*PCM1</ChannelId>
+        <SvcCode>FT_XFINT_S</SvcCode>
+        <SvcRqId>26101401061930799981</SvcRqId>
+        <Timestamp>141026174807</Timestamp>
+        <TimeoutPeriod>45</TimeoutPeriod>
+    </SvcRq>
+    <XferXFIntRq>
+        <XferInfo>
+            <DepAcctIdFrom>
+                <AcctId>000001010974</AcctId>
+                <AcctType>20</AcctType>
+                <AcctCur>360</AcctCur>
+            </DepAcctIdFrom>
+        </XferInfo>
+        <BDIXferXFInt>
+            <BDIXferAmtFrm>57139500</BDIXferAmtFrm>
+            <BDIXferAmtFrmLCE>57139500</BDIXferAmtFrmLCE>
+            <BDIXferAmtTo>3300</BDIXferAmtTo>
+            <BDIXferAmtToLCE>57139500</BDIXferAmtToLCE>
+            <BDIXferCurCode>840</BDIXferCurCode>
+            <BDIXRateAmt>0173150000000</BDIXRateAmt>
+            <BDIStdRateAmt>0173150000000</BDIStdRateAmt>
+            <BDIXReffNumber></BDIXReffNumber>
+            <BDIXferBeneficiery>
+                <BDIBenfAcct>133133088811</BDIBenfAcct>
+                <BDIBenfName>CHASUS33XXX UAT2</BDIBenfName>
+                <BDIBenfPhone>081210910362</BDIBenfPhone>
+                <BDIBenfEmail>caw.seller1@uat-danamon.co.id</BDIBenfEmail>
+                <BDIBenfAddress>NEW YORK,NY USA</BDIBenfAddress>
+                <BankInfo>
+                    <BDIBenfID>CHASUS33XXX</BDIBenfID>
+                    <BDIBenfBName>JPMORGAN CHASE BANK, N.A.</BDIBenfBName>
+                    <BDIBenfBAddress></BDIBenfBAddress>
+                    <BDIBenfBCountry>US</BDIBenfBCountry>
+                </BankInfo>
+                <BankCorespondent1></BankCorespondent1>
+                <BankCorespondent2></BankCorespondent2>
+            </BDIXferBeneficiery>
+            <BDIXferCostCtr>07101</BDIXferCostCtr>
+            <BDIXferMemo>
+                <BDIMemo1>2012/SIN5030348(1163.68)SIN5035358(23558.48)SIN5035351(1328)</BDIMemo1>
+                <BDIMemo2>LUX SIMODIS 2</BDIMemo2>
+            </BDIXferMemo>
+            <BDIXCharges>
+                <BDIXFeeAmt>00000005194500</BDIXFeeAmt>
+                <BDIXFeeAmtLCE>00000005194500</BDIXFeeAmtLCE>
+                <BDIXFeeCode>0</BDIXFeeCode>
+            </BDIXCharges>
+            <LLDInfo>USA0YA012                                               LUX SIMODIS 1</LLDInfo>
+        </BDIXferXFInt>
+    </XferXFIntRq>
+</PCM>

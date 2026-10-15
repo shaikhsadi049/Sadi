@@ -1,0 +1,45 @@
+{
+    "xferInfo": {
+        "depAcctIdFrom": {
+            "acctId": "000001010974",
+            "acctType": "20",
+            "acctCur": "360"
+        }
+    },
+    "bdiXferXfInt": {
+        "bdiXferAmtFrm": "57139500",
+        "bdiXferAmtFrmLce": "57139500",
+        "bdiXferAmtTo": "3300",
+        "bdiXferAmtToLce": "57139500",
+        "bdiXferCurCode": "840",
+        "bdiXRateAmt": "173150000000",
+        "bdiStdRateAmt": "173150000000",
+        "bdiXReffNumber": "",
+        "bdiXFerBeneficiery": {
+            "bdiBenfAcct": "133133088811",
+            "bdiBenfName": "CHASUS33XXX UAT2",
+            "bdiBenfPhone": "081210910362",
+            "bdiBenfEmail": "caw.seller1@uat-danamon.co.id",
+            "bdiBenfAddress": "NEW YORK,NY USA",
+            "bankInfo": {
+                "bdiBenfId": "CHASUS33XXX",
+                "bdiBenfBName": "JPMORGAN CHASE BANK, N.A.",
+                "bdiBenfBAddress": "",
+                "bdiBenfBCountry": "US"
+            },
+            "bankCorespondent1": "",
+            "bankCorespondent2": ""
+        },
+        "bdiXferCostCtr": "07101",
+        "bdiXferMemo": {
+            "bdiMemo1": "2012/SIN5030348(1163.68)SIN5035358(23558.48)SIN5035351(1328)",
+            "bdiMemo2": "LUX SIMODIS 2"
+        },
+        "bdiXCharges": {
+            "bdiXFeeAmt": "00000005194500",
+            "bdiXFeeAmtLce": "00000005194500",
+            "bdiXFeeCode": "0"
+        },
+        "lldInfo": "USA0YA012                                               LUX SIMODIS 1"
+    }
+}
