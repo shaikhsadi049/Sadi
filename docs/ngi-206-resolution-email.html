@@ -1,6 +1,4 @@
-<!-- Resolution mail for NGI-206 (NGI XFINT - bdiMemo1 maximum length).
-     The "Testing Done" row is deliberately left as a placeholder: fill it in
-     from the UAT run before sending. Everything else is final. -->
+<!-- Resolution mail for NGI-206 (NGI XFINT - bdiMemo1 maximum length). -->
 
 <p>Hi Harsh,</p>
 
@@ -39,7 +37,9 @@ deployment prerequisites below:</p>
   </tr>
   <tr>
     <td><b>Testing Done</b></td>
-    <td style="background-color:#fff7e6;"><i>&lt;to be completed from the UAT run: re-post the 60 character memo and record TXN_STAT / MSG_STAT, the channel_swift_payment_xref row, and the PAYDET1 / PAYDET2 values in fccprd.mstm_com_pmt_in&gt;</i></td>
+    <td>Verified in UAT. The package compiled clean, with PK_OL_XFINT and its body both VALID and no rows in ALL_ERRORS.
+      <br>The reported case was re-posted with the same 60 character memo, <i>2012/SIN5030348(1163.68)SIN5035358(23558.48)SIN5035351(1328)</i>, and the message reached FCC. PM_TXN_LOG now shows TXN_STAT = 1 and MSG_STAT = 5, the channel_swift_payment_xref row is written, and the FCC message carries the memo over two elements &ndash; PAYDET1 with the first 35 characters and PAYDET2 with the remaining 25 &ndash; where previously all 60 were in PAYDET1 and the message was not accepted.
+      <br>PM_REL_TXN_STORE reads exactly as before the change, confirming that only the FCC message is affected.</td>
   </tr>
   <tr>
     <td><b>Deployment Prerequisite</b></td>
@@ -57,7 +57,7 @@ deployment prerequisites below:</p>
   </tr>
   <tr>
     <td><b>Next Step</b></td>
-    <td>Deployment to UAT, re-test of the reported case, and end to end confirmation with BDI.</td>
+    <td>End to end confirmation with BDI on the reported transaction, and SIT sign off.</td>
   </tr>
   <tr>
     <td><b>Impacted Units</b></td>
