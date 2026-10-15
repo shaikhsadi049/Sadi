@@ -1,0 +1,52 @@
+<!-- Draft reply for NGI-206 (NGI XFINT - bdiMemo1 maximum length).
+     This is an interim reply: it acknowledges the defect, states where the
+     limit is expected to be, and asks for the two items that decide the fix.
+     It is NOT a resolution note - nothing has been changed yet. -->
+
+<p>Hi Vikas,</p>
+
+<p>Thanks, I have looked at <b>NGI-206</b> (NGI XFINT &ndash; difference in the maximum
+length of <b>bdiMemo1</b> between NGI and IL). Summary of where this stands and what I
+need to close it:</p>
+
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11pt;width:100%;">
+  <tr style="background-color:#f2f2f2;">
+    <th align="left" style="width:22%;">Category</th>
+    <th align="left">Details</th>
+  </tr>
+  <tr>
+    <td><b>Issue</b></td>
+    <td>NGI XFINT enforces a maximum length of 35 characters on bdiMemo1, so a transaction with a longer memo fails STP. The same transaction through IL reaches STP with a bdiMemo1 longer than 35 characters.</td>
+  </tr>
+  <tr>
+    <td><b>Analysis</b></td>
+    <td>The limit is almost certainly a Bean Validation constraint (<b>@Size(max = 35)</b>) on the bdiMemo1 field of the XFINT request payload. These NGI services validate the request body at the controller, so the transaction is rejected before any database call is made &ndash; which is consistent with the transaction failing STP outright rather than part way through posting. Being confirmed against the XFINT sources and the DB function it calls.</td>
+  </tr>
+  <tr>
+    <td><b>Point to confirm first</b></td>
+    <td><b>Important:</b> 35 characters is also a common narrative/memo width in FCR, so the limit may reflect a real downstream column width rather than an arbitrary NGI validation. That IL reaches STP tells us IL does not reject the transaction; it does not yet tell us that the full memo was stored. IL may be passing the whole value to a wider column, truncating silently at 35, or carrying the remainder into bdiMemo2 &ndash; and each of those implies a different fix on the NGI side. If we simply widen the NGI validation while the FCR column is 35 wide, we would replace a clear validation error with an ORA-06502 during posting, or with silently truncated data, which is worse than the current behaviour.</td>
+  </tr>
+  <tr>
+    <td><b>Needed from BDI</b></td>
+    <td>
+      <ol style="margin:4px 0 4px 18px;padding:0;">
+        <li>The XFINT ITRD / field mapping sheet for bdiMemo1 to bdiMemo3, with the agreed maximum length of each field.</li>
+        <li>One IL transaction reference whose bdiMemo1 was longer than 35 characters, so we can compare what IL stored in FCR against what the channel sent.</li>
+        <li>Expected behaviour when the memo exceeds the agreed length: reject the transaction, truncate the memo, or carry the remainder into bdiMemo2.</li>
+        <li>From the Jira: the failing request payload, the exact error NGI returned, and the svcRqId / trace id so the request can be located in the UAT log.</li>
+      </ol>
+      Items 1 and 2 are the ones that decide the fix; item 4 only confirms which layer holds the limit.
+    </td>
+  </tr>
+  <tr>
+    <td><b>Next Step</b></td>
+    <td>Once the XFINT project and the above are available, I will confirm the exact location of the limit, align it with the ITRD length and the FCR column width, and share the fix along with the DB check output. ETA to be confirmed after the sources are in hand.</td>
+  </tr>
+  <tr>
+    <td><b>Impacted Units</b></td>
+    <td>Service: NGI XFINT<br>
+        Field: bdiMemo1 (bdiMemo2 / bdiMemo3 to be checked for the same limit)</td>
+  </tr>
+</table>
+
+<p>Regards,<br>Sadi</p>
