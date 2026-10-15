@@ -32,18 +32,17 @@ the body is recompiled.
 
 ## Deploy
 
-Both scripts now carry what SQL*Plus needs to run them: `SET DEFINE OFF` at the
-top, a `/` after the specification and after the body, and `SHOW ERRORS` after
-each. The source dump they were built from had none of that, which is what made
-the first attempt leave the package **invalid** - without the `/` after
-`END PK_OL_XFINT;` on the specification, SQL*Plus never submits it and reads the
-body as a continuation of the same statement.
+Both scripts carry a `/` after the specification and after the body. The source
+dump they were built from had neither, which is what made the first attempt
+leave the package **invalid** - without the `/` after `END PK_OL_XFINT;` on the
+specification, SQL*Plus never submits it and reads the body as a continuation of
+the same statement.
 
 ```sql
 @PK_OL_XFINT_NGI-206.sql
 ```
 
-`SHOW ERRORS` prints anything that failed to compile, twice - once for the
+The script carries a `/` after the specification and after the body, which is what the source dump was missing.
 specification, once for the body. Both must print `No errors.`
 
 If your tool ignores `SHOW ERRORS`, check it directly:
