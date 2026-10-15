@@ -80,11 +80,27 @@ a choice rather than a field limit.
   whole xref row is silently not written — the row the next day's duplicate
   check reads back.
 
+## The reported transaction is 60 characters, not 256
+
+Confirmed with Oracle on 15 October: the failing UAT transaction carried a
+**60 character** memo. That rules the overall 140 ceiling out as the cause and
+points at the per-line limit instead.
+
+`<PAYDET1>` is **one** line of MT103 field 70, so its own limit is **35**, not
+140. Field 70 is `4*35x`, and FCUBS exposes the four lines as separate tags.
+Line 2658 leaves `PAYDET2` to `PAYDET5` empty and line 2657 puts the entire memo
+into `PAYDET1` alone, so a 60 character memo overflows a single 35 character
+line while four empty lines sit unused beside it.
+
+Every sibling field in the same XML is pre-cut to 35 before it is concatenated
+(`AWI2` at 2178, `AWI3`/`AWI4`/`AWI5` at 2188-2204, `BENINST3`/`BENINST4` at
+1337-1346). `PAYDET1` is the only one that is not. That is the defect.
+
+So the breaking point is **36 characters**, not 141.
+
 ## How this becomes "fails STP"
 
-`<PAYDET1>` is MT103 field 70, which SWIFT caps at 4 lines of 35 = 140
-characters. A 256 character memo is over that, so FCC is expected to reject the
-message. What the package then does:
+FCC does not accept the oversized `PAYDET1`. What the package then does:
 
 1. Line 2705-2713 — any warning code other than `ST-SAVE-002` sets
    `VAR_L_SWIFT_OK := 0`.
@@ -121,7 +137,7 @@ own.
    returned in `PO_RESPONSE_MESSAGE` — it names what FCC actually said.
 3. `ALL_TAB_COLUMNS.DATA_LENGTH` for `PM_REL_TXN_STORE.COD_ORG_REMIT`,
    `TXT_NARRATIVE` and `channel_txn_xref.FROM_MEMO_1`.
-4. What IL writes for the same transaction, and what the agreed `bdiMemo1`
-   length is in the XFINT mapping sheet. MT103 field 70 caps the SWIFT leg at
-   140 whatever is agreed, so above 140 the question is what to do with the
-   remainder, not how to widen a column.
+4. What IL writes into `PAYDET1` to `PAYDET5` for the same 60 character memo.
+   Parity with IL is the bank's stated expectation, and IL having no declared
+   length means it either splits across the lines or cuts before the FCC call -
+   that is the behaviour to mirror.
